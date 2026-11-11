@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eaSea Pelagos - Esplora il mare, vivilo, proteggilo</title>
+    
+    <!-- Leaflet CSS & Search CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.9/dist/leaflet-search.min.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0b131a;
+            color: #ffffff;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url('caricamenti/hero-bg.jpg') no-repeat center center/cover;
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+        }
+        .hero h1 { font-size: 3rem; margin: 0; letter-spacing: 2px; }
+        .hero p { font-size: 1.2rem; color: #a2d2df; margin-top: 10px; }
+
+        /* Content Sections */
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        h2.section-title {
+            text-align: center;
+            font-size: 2rem;
+            color: #64dfdf;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+
+        /* Video Grid Style */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 50px;
+        }
+        .video-card {
+            background: #14213d;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* Rapporto 16:9 */
+            height: 0;
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            border: 0;
+        }
+
+        /* Map Section (In basso) */
+        .map-section {
+            padding: 40px 20px;
+            background: #080f15;
+            border-top: 2px solid #14213d;
+        }
+        #map {
+            width: 100%;
+            height: 600px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Stili Mappa personalizzati */
+        .popup-img { width: 200px; height: auto; border-radius: 8px; margin-top: 5px; }
+        .leaflet-marker-icon { background: transparent !important; border: none !important; box-shadow: none !important; }
+        
+        /* Filtro Categorie sopra la mappa */
+        .filter-container {
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .filter-container select {
+            padding: 8px 15px;
+            border-radius: 6px;
+            background: #14213d;
+            color: white;
+            border: 1px solid #64dfdf;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- HERO SECTION -->
+    <div class="hero">
+        <h1>eaSea Pelagos</h1>
+        <p>esplora il mare, vivilo, proteggilo</p>
+    </div>
+
+    <!-- SEZIONE VIDEO / MEDIA -->
+    <div class="container">
+        <h2 class="section-title">Il mare ai confini del mondo</h2>
+        <div class="video-grid">
+            <!-- Video 1 (Sostituisci l'URL di YouTube con il tuo) -->
+            <div class="video-card">
+                <div class="video-container">
+                    <iframe src="https://www.youtube.com/embed/TUO_LINK_YOUTUBE_1" allowfullscreen></iframe>
+                </div>
+            </div>
+            <!-- Video 2 -->
+            <div class="video-card">
+                <div class="video-container">
+                    <iframe src="https://www.youtube.com/embed/TUO_LINK_YOUTUBE_2" allowfullscreen></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEZIONE MAPPA IN BASSO -->
+    <div class="map-section">
+        <div class="container" style="padding-top: 0; padding-bottom: 0;">
+            <h2 class="section-title">Esplora la Mappa Interattiva</h2>
+            
+            <!-- Menu Filtro Categorie -->
+            <div class="filter-container">
+                <select id="categoryFilter" onchange="filterMarkers()">
+                    <option value="Tutto">Tutte le categorie</option>
+                    <option value="Animali">Animali</option>
+                    <option value="Top10">Top 10</option>
+                    <option value="Relitti">Relitti</option>
+                    <option value="Grotte">Grotte</option>
+                </select>
+            </div>
+
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Script Leaflet e PapaParse -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-search@3.0.9/dist/leaflet-search.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+    <script>
+        // Inizializzazione Mappa
+        var map = L.map('map').setView([43.55, 10.31], 6);
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri'
+        }).addTo(map);
+
+        var markersLayer = new L.LayerGroup();
+        map.addLayer(markersLayer);
+
+        var allMarkers = [];
+
+        // Lente di ricerca
+        var searchControl = new L.Control.Search({
+            layer: markersLayer,
+            initial: false,
+            zoom: 12,
+            propertyName: 'title',
+            textPlaceholder: 'Cerca nome scientifico o comune...'
+        });
+        map.addControl(searchControl);
+
+        // LINK AL TUO FOGLIO GOOGLE (inserisci il tuo link corretto qui sotto)
+        var csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTWKciLxTbcrogqHG8a4vZgNZmSR0ft_V-clBv3u3-q4Ock9FYC-Yk4P80AaX1BE7mkwCJCjNwgIJkz/pub?gid=0&single=true&output=csv';
+
+        Papa.parse(csvUrl, {
+            download: true, header: true, skipEmptyLines: true,
+            complete: function(results) {
+                results.data.forEach(function(row) {
+                    var lat = row.Latitudine ? parseFloat(row.Latitudine.replace(',', '.')) : null;
+                    var lng = row.Longitudine ? parseFloat(row.Longitudine.replace(',', '.')) : null;
+                    if (lat && lng) {
+                        var myIcon = (row.Icona && row.Icona.trim() !== "") ? 
+                                     L.icon({iconUrl: row.Icona.trim(), iconSize: [40, 40], iconAnchor: [20, 20]}) : 
+                                     new L.Icon.Default();
+
+                        var nomeDaCercare = row.Nome || "Senza nome";
+                        if (row.nomecomune && row.nomecomune.trim() !== "") {
+                            nomeDaCercare += " (" + row.nomecomune.trim() + ")";
+                        }
+
+                        var marker = L.marker([lat, lng], {icon: myIcon, title: nomeDaCercare});
+                        marker.category = row.Categoria ? row.Categoria.trim() : "";
+                        
+                        var popup = "<b>" + (row.Nome || "Senza nome") + "</b><br>" + 
+                                    (row.nomecomune ? "<i>" + row.nomecomune + "</i><br>" : "") + 
+                                    (row.Descrizione || "");
+                        if (row.Foto && row.Foto.trim() !== "") {
+                            popup += "<br><img src='" + row.Foto.trim() + "' class='popup-img'>";
+                        }
+                        marker.bindPopup(popup);
+                        
+                        allMarkers.push(marker);
+                        markersLayer.addLayer(marker);
+                    }
+                });
+            }
+        });
+
+        // Funzione Filtro Categorie
+        function filterMarkers() {
+            var selected = document.getElementById("categoryFilter").value;
+            markersLayer.clearLayers();
+            allMarkers.forEach(function(marker) {
+                if (selected === "Tutto" || marker.category === selected) {
+                    markersLayer.addLayer(marker);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
